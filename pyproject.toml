@@ -5,11 +5,26 @@ build-backend = "hatchling.build"
 [project]
 name = "sc2publish"
 version = "0.1.0"
-description = "A lightweight, standalone StarCraft II map builder and Battle.net publisher"
+description = "Headless StarCraft II map builder and Battle.net publisher"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [{name = "koda-27"}]
+maintainers = [{name = "koda-27"}]
+keywords = ["starcraft2", "battle-net", "map-publishing", "mpq", "cli", "headless"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Games/Entertainment",
+  "Topic :: Software Development :: Build Tools",
+]
 dependencies = [
   "click>=8.1,<9",
   "platformdirs>=4,<5",
@@ -27,6 +42,8 @@ sc2publish = "sc2publish.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/koda-27/sc2publish"
+Documentation = "https://github.com/koda-27/sc2publish/tree/main/docs"
+Source = "https://github.com/koda-27/sc2publish"
 Issues = "https://github.com/koda-27/sc2publish/issues"
 
 [project.optional-dependencies]

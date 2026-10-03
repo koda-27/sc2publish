@@ -1,107 +1,167 @@
 # sc2publish
 
-A standalone StarCraft II component builder and Battle.net publisher.
-Builds MPQ archives and publication metadata from source in Python, and updates
-existing Arcade listings headlessly. No StarCraft II installation, Wine,
-Blizzard editor, game cache or previous publication files are required.
+[![CI](https://github.com/koda-27/sc2publish/actions/workflows/ci.yml/badge.svg)](https://github.com/koda-27/sc2publish/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Install
+**Build and publish StarCraft II maps from the command line.**
 
-Extract the sharing ZIP (or clone this repository), then:
+sc2publish turns map component sources into an MPQ archive, compiles the Arcade
+listing and lobby metadata, and publishes directly to Battle.net. Sign in with
+your Blizzard email and password; account, character and listing IDs are
+discovered automatically.
+
+The entire workflow is headless. It requires no StarCraft II installation,
+editor, Wine, browser, game cache or saved publication template.
+
+## Features
+
+- Merge component layers, validate XML and Galaxy includes, and build MPQ archives.
+- Compile lobby attributes, game variants, localized strings, images and score results from source.
+- Generate Arcade patch notes from a plain-text file.
+- Authenticate with Blizzard credentials and renew cached sessions.
+- Upload changed files with progress reporting and verify the published revision.
+- Validate a release offline with `push --dry-run`.
+
+**Scope:** updates existing map listings. Creating new listings and publishing
+dependency mods are not supported yet. Region settings support EU, US and KR;
+live end-to-end publishing has been verified on EU. CI runs on Linux, macOS and Windows.
+
+## Installation
+
+Requires **Python 3.11+** and **Git**. Install with
+[uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```sh
-uv sync --locked
-uv run sc2publish --help
+uv tool install git+https://github.com/koda-27/sc2publish.git
+sc2publish --help
 ```
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/getting-started/installation/).
-The first sync downloads the dependencies pinned in `uv.lock`.
-`uv tool install .` installs the CLI globally; `pip install .` also works.
-
-## Authentication: just your Blizzard credentials
+Or install with pip in a virtual environment:
 
 ```sh
-uv run sc2publish auth
+python -m pip install "git+https://github.com/koda-27/sc2publish.git"
 ```
 
-Enter your **Blizzard email and password** (password input is hidden).
-The tool authenticates, discovers your SC2 account region and character from
-Battle.net, and caches a renewable session token. No token extraction, toon name,
-realm number or game-account settings are required. If Blizzard requests MFA,
-the command prompts for the code.
+Python dependencies, the protocol schema and stock catalog names are installed
+with the package. Your map sources and assets are supplied separately.
 
-Use `auth --remember` to save the password in the **OS keyring** for automatic
-re-login after a token expires. Without it, only the token is saved. Ordinary
-`push` and `status --remote` reuse/renew that token and handle a new login
-challenge when necessary. `login` is an alias of `auth`.
+## Quick start
 
-**Authentication data defaults outside the repository.** The token cache is
-`~/.config/sc2publish/.env` on Linux (the platform user configuration directory
-on Windows/macOS). Passwords are never copied into this cache. Existing explicitly
-configured `.env` files are supported; `--env` or `SC2PUBLISH_ENV` selects one.
+### 1. Configure your map
 
-For automation, supply an external file containing email on line one and
-password on line two, or set `SC2PUBLISH_EMAIL` and `SC2PUBLISH_PASSWORD` through
-your CI secret store:
+Create `sc2publish.toml` in your map project:
 
-```sh
-uv run sc2publish --credentials /path/to/private/credentials.txt -p my-project push
+```toml
+[project]
+name = "My Map" # Must match your existing Battle.net listing.
+region = "EU"
+locale = "enUS"
+extra_dependencies = [] # Published dependency product IDs, if required.
+
+[build]
+layers = ["Maps/MyMap.SC2Map"]
+output = "build"
+
+[publish]
+# notes = "publish-notes.txt"
 ```
 
-No separate auth command is needed in that case. See
-[authentication details](docs/headless-login.md) for storage, renewal and MFA.
+`layers` contains **component directories**, not packed map archives. List mods
+in merge order and the map last. Paths are relative to the manifest. Sources
+must include `DocumentInfo`, `MapInfo` and Galaxy code including `MapScript.galaxy`.
 
-## Set up your map
+Declare required published dependencies by **product ID**, not attribute
+namespace. The Teams 15 lobby dependency is inferred automatically when used.
+See the [example manifest](examples/project.toml) and
+[source and dependency requirements](docs/publishing.md#inputs).
 
-1. Copy [examples/project.toml](examples/project.toml) to your map project's
-   `sc2publish.toml`. Set the map name, region and component layers. Paths are
-   relative to that manifest. The existing listing's ID and namespace are
-   discovered from your account; optionally pin them to assert the destination.
-2. Declare your published dependency product IDs in `extra_dependencies`.
-   These are map product IDs, not the namespaces in `DocumentInfo`. The built-in
-   Teams 15 lobby dependency is inferred from the source attributes.
-3. Build/check offline, then publish with your Blizzard credentials:
+### 2. Validate offline
+
+From your map project directory:
 
 ```sh
-uv run sc2publish -p /path/to/sc2publish.toml push --dry-run
-uv run sc2publish --credentials /path/to/private/credentials.txt -p /path/to/sc2publish.toml push
-uv run sc2publish -p /path/to/sc2publish.toml status --remote
+sc2publish push --dry-run
 ```
 
-`build`, `check`, `doctor`, local `status` and `push --dry-run` do not log in.
-Online commands ask for Blizzard credentials if no usable token or configured
-credentials exist. An external credentials file or saved keyring password makes
-renewal unattended unless Blizzard requires MFA.
+This builds the archive and publication metadata without logging in or reserving
+a Battle.net revision.
 
-Publication always compiles lobby attributes, variants, localized text, images,
-score results and Arcade information from your components. Set `[publish].notes`
-to a UTF-8 bullet file to generate release notes for the reserved revision.
-Your map sources are inputs, not bundled assets. Publishing currently updates
-**existing listings**; it does not create new listings or publish dependency mods.
-
-Source compilation was verified by publishing Star Battle Classic EU **1.42**
-without a metadata template or map-specific result-handle table. See
-[publishing details](docs/publishing.md) for source requirements and migration.
-
-## Development and sharing
+### 3. Sign in and publish
 
 ```sh
+sc2publish auth
+sc2publish push
+```
+
+Authentication prompts for your Blizzard email and a hidden password. The
+publisher resolves your existing listing, reserves the next revision, uploads
+the files and confirms the live version before reporting success.
+
+Session tokens are stored in your platform's user configuration directory
+(`~/.config/sc2publish/.env` on Linux). Passwords are not stored in that file.
+Use `sc2publish auth --remember` to save your password in the OS keyring.
+
+## Automation
+
+Supply `SC2PUBLISH_EMAIL` and `SC2PUBLISH_PASSWORD` through your CI secret store,
+or use an external credentials file with email on the first line and password
+on the second:
+
+```sh
+sc2publish --credentials /path/to/private/credentials.txt -p /path/to/sc2publish.toml push
+```
+
+No separate authentication command is needed. Login and renewal are unattended
+unless Blizzard requests MFA or another interactive challenge. Credentials and
+session tokens should stay outside version control.
+
+## Commands
+
+| Command | Purpose | Network |
+| --- | --- | --- |
+| `init <directory> --name "My Map"` | Create a project manifest | Offline |
+| `build` | Build the archive and publication files | Offline |
+| `check` | Validate sources and metadata after a build | Offline |
+| `doctor` | Inspect local configuration | Offline |
+| `push --dry-run` | Build and validate a release | Offline |
+| `auth` | Sign in; `login` is an alias | Battle.net |
+| `push` | Build, publish and verify; skip unchanged sources | Battle.net when publishing |
+| `status` | Show the last recorded publication | Offline |
+| `status --remote` | Query the live listing | Battle.net |
+
+Use `-p <manifest>` before a command to select another project, `--json` for
+structured output, or `push --force` to publish unchanged sources again.
+Run `sc2publish <command> --help` for command-specific options.
+
+## Documentation
+
+- [Authentication, token storage, renewal and MFA](docs/headless-login.md)
+- [Publishing, dependencies, release notes and migration](docs/publishing.md)
+- [Project configuration example](examples/project.toml)
+- [Protocol references and third-party attribution](THIRD_PARTY.md)
+
+## Development
+
+```sh
+git clone https://github.com/koda-27/sc2publish.git
+cd sc2publish
 uv sync --locked --extra dev
 uv run --locked --extra dev pytest
+uv run sc2publish --help
 uv build
-uv run --locked --extra dev twine check dist/*.whl dist/*.tar.gz
-uv run --locked python scripts/share.py --output dist/sc2publish-share.zip
 ```
 
-Tests use synthetic credentials and simulated HTTP, Front and native exchanges.
-Real account settings, OS credentials and network access are isolated in tests.
-The schema, stock catalog names and server's public verification key are bundled
-resources; no sibling checkout is needed. Stock-name regeneration is optional:
-`scripts/build_stock_blob.py --help` documents its explicit install inputs.
+Tests use synthetic credentials and simulated HTTP and native protocol
+exchanges. They isolate real account settings and block network connections.
+Live verification is documented in the [publishing guide](docs/publishing.md#live-verification).
 
-The sharing ZIP uses the reviewed `SHARE_FILES.txt` allowlist and includes a
-SHA-256 checksum. Git history, virtualenvs, credentials, live `.env` files, logs,
-publication artifacts and project-specific caches are excluded. `.env.example`
-contains blank placeholders only.
+Bug reports and pull requests are welcome. Include the command, platform and
+redacted error output when [reporting an issue](https://github.com/koda-27/sc2publish/issues).
 
-Protocol and cryptography references: [THIRD_PARTY.md](THIRD_PARTY.md).
+## License
+
+[MIT](LICENSE). See [THIRD_PARTY.md](THIRD_PARTY.md) for attribution.
+
+StarCraft II and Battle.net are trademarks of Blizzard Entertainment.
+This is an independent community project.
