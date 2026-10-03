@@ -1,0 +1,20 @@
+# Copy into your own map project and replace these placeholders.
+[project]
+name = "My Map"
+region = "EU"
+locale = "enUS"
+# Optional assertions; discovered by name on your account when omitted:
+# map_id = 123456
+# namespace = 123456
+# Published dependency PRODUCT IDs (not their attribute namespaces).
+# Include the non-Core dependencies required by your map and lobby.
+extra_dependencies = []
+
+[build]
+# Component folders in merge order, with the map last; relative to this file.
+layers = ["Maps/MyMap.SC2Map"]
+output = "build"
+
+[publish]
+# Optional UTF-8 file: one bullet per line; blank and # comment lines ignored.
+# notes = "publish-notes.txt"
