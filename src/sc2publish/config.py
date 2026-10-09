@@ -150,6 +150,11 @@ class Project:
         self.locale = self.project.get("locale", "enUS")
         if not self.name or len(self.name) > 80:
             raise PublishError("Set [project].name to a map name of 1–80 characters.")
+        # Earlier listing names, so a renamed map still resolves its existing listing.
+        self.previous_names = list(self.project.get("previous_names", []))
+        if len(self.previous_names) > 15 or any(not isinstance(n, str) or not n or len(n) > 80
+                                                for n in self.previous_names):
+            raise PublishError("[project].previous_names must list at most 15 map names of 1–80 characters.")
         if self.region not in ("EU", "US", "KR"):
             raise PublishError("Supported regions: EU, US, KR.")
         if not re.fullmatch(r"[a-z]{2}[A-Z]{2}", self.locale):

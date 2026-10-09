@@ -23,8 +23,8 @@ editor, Wine, browser, game cache or saved publication template.
 - Upload changed files with progress reporting and verify the published revision.
 - Validate a release offline with `push --dry-run`.
 
-**Scope:** updates existing map listings. Creating new listings and publishing
-dependency mods are not supported yet. Region settings support EU, US and KR;
+**Scope:** updates existing map listings, or creates a new one when
+`[project].create = true`. Publishing dependency mods is not supported yet. Region settings support EU, US and KR;
 live end-to-end publishing has been verified on EU. CI runs on Linux, macOS and Windows.
 
 ## Installation

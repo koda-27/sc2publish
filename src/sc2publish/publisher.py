@@ -120,10 +120,21 @@ def write_request(codec, project, file, file_id, map_handle):
                        'm_purpose': {'choice': usage, 'value': purpose}}, 'm_fileId': file_id}
 
 
-def verify_identity(project, response, discover=False):
+def verify_identity(project, response, discover=False, create=False):
     prior = response['m_priorRevision']
+    if create:
+        # [project].create opts into a brand-new listing: Battle.net allocates its
+        # attribute namespace at lookup and its map ID at reservation.
+        if prior is not None:
+            raise PublishError('A listing with this name already exists. Remove [project].create to update it.')
+        if project.map_id:
+            raise PublishError('A new listing has no map_id yet. Remove [project].map_id to create one.')
+        if project.namespace and project.namespace != response['m_attributeNs']:
+            raise PublishError('The allocated namespace differs from the project configuration.')
+        project.namespace = response['m_attributeNs']
+        return None
     if prior is None:
-        raise PublishError('No existing listing found. This release updates existing maps only.')
+        raise PublishError('No existing listing found. Set [project].create = true to create a new listing.')
     if discover:
         # PrePublish resolves the authenticated author's listing by name.
         # Explicit IDs remain assertions, never silently replaced.
@@ -158,7 +169,8 @@ def publish(project, force=False, dry_run=False, report=print):
     report(f'Authenticating with Battle.net {project.region}')
     native = connect(project)
     try:
-        prior = verify_identity(project, native.prepublish(), discover=True)
+        create = bool(project.project.get('create', False))
+        prior = verify_identity(project, native.prepublish(), discover=True, create=create)
         token = native.next_token()
         native.send_record(2, 13, MAP + 'PublishRequest',
                            {'Publish': {}, 'm_mapNames': [{'m_locale': project.locale.encode(), 'm_name': project.name}],
@@ -168,7 +180,11 @@ def publish(project, force=False, dry_run=False, report=print):
             raise PublishError(f'Publication reservation rejected (error {result["value"].get("m_reason")}).')
         map_handle = result['value']['m_mapHandle']
         version = map_handle['m_version']
-        if map_handle['m_id'] != project.map_id or version <= prior['m_version']:
+        if prior is None:
+            if not map_handle['m_id'] or version <= 0:
+                raise PublishError('Unexpected reserved identity for the new listing.')
+            project.map_id = map_handle['m_id']
+        elif map_handle['m_id'] != project.map_id or version <= prior['m_version']:
             raise PublishError('Unexpected reserved map identity or revision.')
         version_text = f'{version >> 16}.{version & 65535}'
         report(f'Reserved {project.name} {version_text}')

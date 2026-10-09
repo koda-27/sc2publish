@@ -330,7 +330,8 @@ class Native:
     def prepublish(self):
         token = self.next_token()
         self.send_record(3, 13, MAP + 'PrePublishRequest',
-                         {'PrePublish': {}, 'm_commandId': token, 'm_mapNames': [self.project.name]})
+                         {'PrePublish': {}, 'm_commandId': token,
+                          'm_mapNames': [self.project.name, *getattr(self.project, 'previous_names', [])]})
         result = self.correlated(MAP + 'PrePublishResponse', 13, 3, 'm_commandId', token)['m_result']
         if result['choice'] != 0:
             raise PublishError('Battle.net rejected the map lookup.')

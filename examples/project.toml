@@ -3,6 +3,12 @@
 name = "My Map"
 region = "EU"
 locale = "enUS"
+# Earlier listing names, so a lookup still finds a map whose name changed.
+# Battle.net may still refuse to publish an existing listing under a new name (3229).
+# previous_names = ["Old Map Name"]
+# Create a brand-new listing instead of updating one (omit map_id/namespace).
+# Listing names cannot be changed by a later publish, so choose it carefully.
+# create = true
 # Optional assertions; discovered by name on your account when omitted:
 # map_id = 123456
 # namespace = 123456
