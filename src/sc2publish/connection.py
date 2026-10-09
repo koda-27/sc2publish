@@ -264,9 +264,20 @@ class Native:
     def receive_record(self, name, route):
         while True:
             try:
-                cmd, slot, value, used = self.codec.decode_record(self.buffer, name)
+                reader = Bits(self.buffer)
+                cmd = reader.read(6)
+                slot = reader.read(4) if reader.read(1) else None
+                # Build notifications can precede the proof after a game update.
+                # Consume their own schema, never decode them as an auth proof.
+                if (slot, cmd) == (0, 12) and route != (0, 12):
+                    _, _, keys, used = self.codec.decode_record(
+                        self.buffer, AUTH_TYPE + 'NgdpKeysUpdate')
+                    self.ngdp_keys = keys
+                    del self.buffer[:used]
+                    continue
                 if (slot, cmd) != route:
-                    raise PublishError(f'Unexpected native authentication route {slot}/{cmd}.')
+                    raise PublishError(f'Unexpected native authentication route {slot}/{cmd}; expected {route} ({name}).')
+                cmd, slot, value, used = self.codec.decode_record(self.buffer, name)
                 del self.buffer[:used]
                 return value
             except IndexError:

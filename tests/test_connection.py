@@ -195,3 +195,38 @@ def test_account_without_sc2_character_is_reported_cleanly():
     native.wait_message = lambda *args: {'m_toonDisplays': []}
     with pytest.raises(PublishError, match='no StarCraft II character'):
         native.select_character({})
+
+
+@pytest.mark.parametrize('split', [0, 1, 2, 17, 33, 34, 35])
+def test_build_notification_before_fragmented_auth_proof(split):
+    native = Native.__new__(Native)
+    native.codec = Codec()
+    # Independent wire encoding: command 12, slot 0, two fixed 16-byte keys.
+    writer = Writer()
+    writer.write(12, 6)
+    writer.write(1, 1)
+    writer.write(0, 4)
+    writer.bytes(b'c' * 16)
+    writer.bytes(b'b' * 16)
+    expected = {'Proof': {}, 'm_request': []}
+    proof = native.codec.encode_record(2, 0, AUTH_TYPE + 'ProofRequest', expected)
+    wire = bytes(writer.data) + proof
+    native.buffer = bytearray(wire[:split])
+    fragments = iter([wire[split:]])
+    native.read_more = lambda: native.buffer.extend(next(fragments))
+    assert native.receive_record(AUTH_TYPE + 'ProofRequest', (0, 2)) == expected
+    assert native.ngdp_keys == {'m_cdnKey': b'c' * 16, 'm_buildKey': b'b' * 16}
+    assert not native.buffer
+
+
+def test_unexpected_auth_route_is_rejected_before_payload_decoding():
+    native = Native.__new__(Native)
+    native.codec = Codec()
+    writer = Writer()
+    writer.write(63, 6)
+    writer.write(1, 1)
+    writer.write(0, 4)
+    native.buffer = bytearray(writer.data)
+    native.read_more = lambda: pytest.fail('unexpected route should not consume a payload')
+    with pytest.raises(PublishError, match='Unexpected native authentication route 0/63'):
+        native.receive_record(AUTH_TYPE + 'ProofRequest', (0, 2))
