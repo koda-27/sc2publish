@@ -7,7 +7,12 @@ from .bits import Bits, Writer
 LAYOUTS = {
     "Client::S2Map::PrePublish": [],
     "Client::S2Map::Publish": [],
-    "Client::S2Map::PrePublishRequest": [(0, 0), (2, 20), (1, 0)],
+    # 18, not 20: the name array's 4-bit count and the first name's 9-bit length
+    # follow this padding and straddle a byte. With 20 the length landed two bits
+    # late, which is invisible for lengths whose bits 2 and 3 are clear (19, 33)
+    # and wrong for the rest: "Star Battle Reloaded" (20) was read as 16 characters
+    # and the request id out of the name's last four letters.
+    "Client::S2Map::PrePublishRequest": [(0, 0), (2, 18), (1, 0)],
     "S2Map::LocalizedName": [(0, 0), (1, 0)],
     "Client::S2Map::PublishRequest": [(0, 0), (4, 0), (2, 29), (1, 0), (3, 0)],
     "Client::S2Map::PrePublishResponse": [(0, 0), (2, 0), (1, 16)],

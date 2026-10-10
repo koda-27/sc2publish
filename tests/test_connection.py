@@ -230,3 +230,22 @@ def test_unexpected_auth_route_is_rejected_before_payload_decoding():
     native.read_more = lambda: pytest.fail('unexpected route should not consume a payload')
     with pytest.raises(PublishError, match='Unexpected native authentication route 0/63'):
         native.receive_record(AUTH_TYPE + 'ProofRequest', (0, 2))
+
+
+@pytest.mark.parametrize('length', [10, 15, 16, 19, 20, 27, 29, 33, 80])
+def test_lookup_request_places_the_name_length_where_battle_net_reads_it(length):
+    """The first name's 9-bit length occupies wire bits 33..41 for every length.
+
+    Verified against Battle.net with names of 12, 19, 20, 27, 28, 29, 30 and 33
+    characters. Two bits later is byte-identical only when the length's bits 2
+    and 3 are clear, which is how 19 and 33 hid the difference.
+    """
+    name = 'N' * length
+    raw = Codec().encode_record(3, 13, connection.MAP + 'PrePublishRequest',
+                                {'PrePublish': {}, 'm_commandId': 0x11223344, 'm_mapNames': [name]})
+    assert raw[:2] == b'\xc3\x05' and raw[2:4] == b'\0\0'
+    # Seven high bits in byte 4 (bits 1..7), the two low bits in byte 5 (bits 0..1).
+    assert raw[4] == (length >> 2) << 1
+    assert raw[5] == length & 3
+    assert raw[6:6 + length] == name.encode()
+    assert raw[6 + length:] == bytes.fromhex('11223344')
